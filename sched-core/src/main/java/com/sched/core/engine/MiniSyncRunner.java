@@ -26,9 +26,7 @@ public class MiniSyncRunner {
     //构造器注入
     public MiniSyncRunner(JdbcTemplate jdbcTemplate) {
         //准备注入构造器
-        System.out.println("准备注入构造器~~");
         this.jdbcTemplate = jdbcTemplate;
-        System.out.println("jdbcTemplate注入成功");
     }
     /**
      * 跑一次全量同步，返回成功的行数

@@ -20,10 +20,8 @@ public class ConfigDrivenRunner {
     private final SyncConfigLoader syncConfigLoader;
 
     public ConfigDrivenRunner(JdbcTemplate jdbcTemplate,SyncConfigLoader syncConfigLoader) {
-        System.out.println("准备注入使用动态sql构造器~~~~");
         this.jdbcTemplate = jdbcTemplate;
         this.syncConfigLoader = syncConfigLoader;
-        System.out.println("注入完成~~~");
     }
     public long runOnce(String taskCode){
         //读取配置
@@ -35,9 +33,9 @@ public class ConfigDrivenRunner {
         if (sourceWhitelist == null || targetWhitelist == null) {
             throw new IllegalStateException("表未配置白名单：" + taskConfig.sourceTable() + " / " + taskConfig.targetTable());
         }
-        //按照映射算出需要读取的字段映射
+        //按照映射算出需要读取的字段映射(目标列必须取全部字段的值，因为目标列需要填充datasource)
         List<String> sourceColumnList = fieldMappings.stream().filter(m -> "COLUMN".equals(m.valueType())).map(FieldMapping::sourceColumn).toList();
-        List<String> targetColumnList = fieldMappings.stream().filter(m -> "COLUMN".equals(m.valueType())).map(FieldMapping::targetColumn).toList();
+        List<String> targetColumnList = fieldMappings.stream().map(FieldMapping::targetColumn).toList();
         //读取需要排序的字段list
         List<String> orderByList = List.of(taskConfig.bizKey().split(","));
         //构建查询sql
@@ -62,9 +60,14 @@ public class ConfigDrivenRunner {
             for (Map<String, Object> row : resultList) {
                 Object[] arg = new Object[targetColumnList.size()];
                 for (int i = 0; i < targetColumnList.size(); i++) {
-                    arg[i] = row.get(sourceColumnList.get(i));
+                    //获取fieldmapping里字段值类型是否是column，以便填充datasource字段值
+                    FieldMapping m = fieldMappings.get(i);
+                    arg[i] = "COLUMN".equals(m.valueType())
+                            ? row.get(m.sourceColumn())
+                            : m.value();
                 }
                 args.add(arg);
+                log.info("要插入的值是{}",args.toArray());
             }
             //执行插入sql
             jdbcTemplate.batchUpdate(insertSql, args);

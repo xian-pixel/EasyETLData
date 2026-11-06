@@ -1,4 +1,4 @@
-package com.sched.entity.DTO.VO;
+package com.sched.entity.dto.vo;
 
 import jdk.jfr.DataAmount;
 import lombok.AllArgsConstructor;
@@ -13,5 +13,5 @@ import lombok.NoArgsConstructor;
 public class Result<T> {
     private Integer code;
     private String msg;
-    private Object data;
+    private T data;
 }
