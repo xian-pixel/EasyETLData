@@ -2,6 +2,7 @@ package com.sched.core.engine;
 
 import com.sched.core.config.SyncConfigLoader;
 import com.sched.core.log.BatchLogService;
+import com.sched.core.log.ErrorDetailService;
 import com.sched.core.model.FieldMapping;
 import com.sched.core.model.SyncTaskConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -25,12 +26,16 @@ public class ConfigDrivenRunner {
     private final BatchLogService batchLogService;
     //注入事务
     private final TransactionTemplate transactionTemplate;
+    //注入错误详情服务
+    private final ErrorDetailService errorDetailService;
 
-    public ConfigDrivenRunner(JdbcTemplate jdbcTemplate,SyncConfigLoader syncConfigLoader,BatchLogService batchLogService,TransactionTemplate transactionTemplate) {
+    public ConfigDrivenRunner(JdbcTemplate jdbcTemplate,SyncConfigLoader syncConfigLoader,BatchLogService batchLogService,TransactionTemplate transactionTemplate
+    ,ErrorDetailService errorDetailService) {
         this.jdbcTemplate = jdbcTemplate;
         this.syncConfigLoader = syncConfigLoader;
         this.batchLogService = batchLogService;
         this.transactionTemplate = transactionTemplate;
+        this.errorDetailService =   errorDetailService;
     }
     public long run (String taskCode){
         //读取配置
@@ -42,13 +47,13 @@ public class ConfigDrivenRunner {
         //尝试执行核心搬运逻辑
         try{
             //添加事务
-            total = transactionTemplate.execute(status -> runOnce(taskCode, taskConfig));
+            total = transactionTemplate.execute(status -> runOnce(taskCode, taskConfig,batchId));
             //执行结束日志
             batchLogService.finish(batchId,0,"SUCCESS",total,0,null,System.currentTimeMillis()-start);
         }catch (Exception e){
             //执行失败日志
             log.error("任务 {} 执行失败", taskCode, e);
-            batchLogService.finish(batchId,0,"FAIL",total,total,e.getMessage(),System.currentTimeMillis()-start);
+            batchLogService.finish(batchId,0,"FAIL",0,total,e.getMessage(),System.currentTimeMillis()-start);
             //将异常抛出
             throw e;
         }
@@ -59,7 +64,7 @@ public class ConfigDrivenRunner {
 
     //同步核心搬运逻辑
 //    @Transactional(rollbackFor = Exception.class)//添加事务，如果有异常，全部回滚
-    public long runOnce(String taskCode,SyncTaskConfig taskConfig){
+    public long runOnce(String taskCode,SyncTaskConfig taskConfig,String batchId){
         List<FieldMapping> fieldMappings = syncConfigLoader.loadMappings(taskConfig.taskId());//通过SyncConfigLoader读取配置并且赋值给fieldMappings对象
         String sourceWhitelist = syncConfigLoader.loadWhitelist(taskConfig.sourceTable(), "SOURCE");//查询该任务的源表是否在白名单配置表里
         String targetWhitelist = syncConfigLoader.loadWhitelist(taskConfig.targetTable(), "TARGET");//查询该任务的目标表是否在白名单配置表里
@@ -77,7 +82,13 @@ public class ConfigDrivenRunner {
         //构建插入sql
         String insertSql = SqlBuilder.buildInsert(taskConfig.targetTable(), targetColumnList, targetWhitelist);
         log.info("sql构建完成，查询sql为：{}，\n插入sql为：{}",selectSql,insertSql);
-        // 先删后插，删除task任务源表的数据(目前是全量删除)
+        //先进行判断，判断源表查询的条数是否为0，如果为0，那么不进行删除目标表的数据
+        if(jdbcTemplate.queryForList(selectSql+" LIMIT 1").isEmpty()){
+            log.info("源表查询的条数为0，不进行删除目标表的数据");
+            //抛出异常
+            throw new IllegalStateException("源表查询的条数为0，不进行删除目标表的数据");
+        }
+        // 先删后插，删除task任务目标表的数据(目前是全量删除)
         jdbcTemplate.update("DELETE FROM " + taskConfig.targetTable());
         log.info("已清空目标表 {}", taskConfig.targetTable());
         //分批执行查询sql
@@ -103,8 +114,15 @@ public class ConfigDrivenRunner {
                 args.add(arg);
                 log.info("要插入的值是{}",args.toArray());
             }
-            //执行插入sql
-            jdbcTemplate.batchUpdate(insertSql, args);
+            //查找出报错记录是哪条
+            try{
+                //执行插入sql
+                jdbcTemplate.batchUpdate(insertSql, args);
+            }catch(Exception e ){
+                errorDetailService.record(batchId, 0, "SQL_ERROR", e.getMessage());
+                throw e;      // 或者记录后继续下一批（取决于是否要求"部分成功"）
+            }
+
             total += resultList.size();
             offset += resultList.size();
             log.info("任务 {} 进度：{} 行", taskCode, total);
