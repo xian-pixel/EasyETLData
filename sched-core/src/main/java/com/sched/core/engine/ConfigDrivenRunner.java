@@ -53,7 +53,7 @@ public class ConfigDrivenRunner {
         }catch (Exception e){
             //执行失败日志
             log.error("任务 {} 执行失败", taskCode, e);
-            batchLogService.finish(batchId,0,"FAIL",0,total,e.getMessage(),System.currentTimeMillis()-start);
+            batchLogService.finish(batchId,0,"FAILED",0,total,e.getMessage(),System.currentTimeMillis()-start);
             //将异常抛出
             throw e;
         }

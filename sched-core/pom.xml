@@ -39,5 +39,10 @@
             <version>3.0.2</version>
             <scope>compile</scope>
         </dependency>
+        <!-- 表达式引擎 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>QLExpress</artifactId>
+        </dependency>
     </dependencies>
 </project>
