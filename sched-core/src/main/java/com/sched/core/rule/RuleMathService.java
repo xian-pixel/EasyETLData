@@ -20,13 +20,11 @@ public class RuleMathService {
      * @return BigDecimal，避免 double 的精度误差
      */
     public BigDecimal minus(String a, String b) {
-
         // 任一为空就返回 0：宁可得 0 也不让一行脏数据把整批任务搞失败
         // 代价是会掩盖“源数据缺失”，所以上游的非空校验要单独做
         if (a == null || b == null) {
             return BigDecimal.ZERO;
         }
-
         // trim() 去掉数据库里可能带的空格：' 100.00 ' 直接 new BigDecimal 会抛 NumberFormatException
         // subtract 是 BigDecimal 的精确减法，不会出现 0.1 + 0.2 = 0.30000000000000004 这种问题
         return new BigDecimal(a.trim()).subtract(new BigDecimal(b.trim()));
