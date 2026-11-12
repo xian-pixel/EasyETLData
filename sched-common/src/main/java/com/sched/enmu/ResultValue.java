@@ -6,12 +6,12 @@ import lombok.Getter;
 /**
  * 统一返回状态码枚举
  * 号段规划：
- *   0     成功
- *   1xxx  参数/请求错误
- *   2xxx  登录/权限
- *   3xxx  调度任务业务
- *   4xxx  中间件/系统依赖
- *   500   未知异常兜底
+ * 0     成功
+ * 1xxx  参数/请求错误
+ * 2xxx  登录/权限
+ * 3xxx  调度任务业务
+ * 4xxx  中间件/系统依赖
+ * 500   未知异常兜底
  */
 @Getter
 @AllArgsConstructor
@@ -60,9 +60,13 @@ public enum ResultValue {
     // ==================== 500 兜底 ====================
     SYSTEM_ERROR(500, "系统繁忙，请稍后再试");
 
-    /** 状态码 */
+    /**
+     * 状态码
+     */
     private final Integer code;
-    /** 提示信息 */
+    /**
+     * 提示信息
+     */
     private final String msg;
 }
 

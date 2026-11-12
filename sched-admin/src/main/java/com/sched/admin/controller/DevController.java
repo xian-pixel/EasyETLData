@@ -23,8 +23,9 @@ public class DevController {
     private MiniSyncRunner miniSyncRunner;
     @Resource
     private ConfigDrivenRunner configDrivenRunner;
+
     @GetMapping("/run-once")
-    public Map<String, Object> runOnce(){
+    public Map<String, Object> runOnce() {
         //定义一个map用于返回结果result
         Map<String, Object> result = new LinkedHashMap<>();
         log.info("开始执行一次全量同步~~~");
@@ -35,17 +36,17 @@ public class DevController {
     }
 
     @GetMapping("/run-once-config")
-    public Result<Map<String, Object>> runOnceConfig(@RequestParam String taskCode){
+    public Result<Map<String, Object>> runOnceConfig(@RequestParam String taskCode) {
         //定义一个map用于返回结果result
         Map<String, Object> map = new LinkedHashMap<>();
         log.info("开始执行一次全量同步~~~");
-        long rows = configDrivenRunner.run( taskCode);
-        map.put("result:", new SyncReturnVo<Long>(taskCode,rows));
+        long rows = configDrivenRunner.run(taskCode);
+        map.put("result:", new SyncReturnVo<Long>(taskCode, rows));
         log.info("全量同步执行完成~~~");
         return Result.<Map<String, Object>>builder()
-                     .code(ResultValue.SUCCESS.getCode())
-                     .msg(ResultValue.SUCCESS.getMsg())
-                     .data(map)
-                     .build();
+                .code(ResultValue.SUCCESS.getCode())
+                .msg(ResultValue.SUCCESS.getMsg())
+                .data(map)
+                .build();
     }
 }

@@ -30,7 +30,9 @@ public class RuleMathService {
         return new BigDecimal(a.trim()).subtract(new BigDecimal(b.trim()));
     }
 
-    /** 加法。注册后表达式里写：加(a, b)，逻辑与 minus 完全一样，只是换成 add */
+    /**
+     * 加法。注册后表达式里写：加(a, b)，逻辑与 minus 完全一样，只是换成 add
+     */
     public BigDecimal plus(String a, String b) {
         if (a == null || b == null) {
             return BigDecimal.ZERO;

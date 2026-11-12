@@ -8,24 +8,27 @@ import java.util.UUID;
 /**
  * 记录日志服务
  * 详情：每次开始同步之前记录一条日志，同步结束之后记录一条日志
+ *
  * @auther 邢正阳
  */
 @Service
 public class BatchLogService {
     //首先注入jdbcTemplate
     private final JdbcTemplate jdbcTemplate;
-    public BatchLogService(JdbcTemplate jdbcTemplate){
+
+    public BatchLogService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
+
     /**
      * 开始记录日志
      */
-    public String start(String taskId,int shard_index,int shard_total){
-        String batchId = UUID.randomUUID().toString().replace("-","");
+    public String start(String taskId, int shard_index, int shard_total) {
+        String batchId = UUID.randomUUID().toString().replace("-", "");
         jdbcTemplate.update("INSERT INTO t_sync_batch_log" +
                         "(batch_id,task_id,shard_index,shard_total,status,start_time) " +
                         "VALUES(?,?,?,?,'RUNNING',NOW())",
-                batchId,taskId,shard_index,shard_total);
+                batchId, taskId, shard_index, shard_total);
         return batchId;
     }
 

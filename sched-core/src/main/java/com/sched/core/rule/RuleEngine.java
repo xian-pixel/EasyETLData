@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import com.sched.utils.CommonUtils;
 
 @Component
@@ -20,28 +21,28 @@ public class RuleEngine {
     private final RuleMathService mathService;  // 金额加减的真正实现者
 
     //构造器注入
-    public RuleEngine (JdbcTemplate jdbcTemplate,RuleMathService mathService) {
+    public RuleEngine(JdbcTemplate jdbcTemplate, RuleMathService mathService) {
         this.jdbcTemplate = jdbcTemplate;
         this.mathService = mathService;
         //初始化规则引擎
-        try{
-            runner.addFunctionOfServiceMethod("减",mathService,"minus",new Class[]{String.class,String.class},null);
-            runner.addFunctionOfServiceMethod("加",mathService,"plus",new Class[]{String.class,String.class},null);
-        }catch(Exception e){
-            throw new RuntimeException("初始化规则引擎失败",e);
+        try {
+            runner.addFunctionOfServiceMethod("减", mathService, "minus", new Class[]{String.class, String.class}, null);
+            runner.addFunctionOfServiceMethod("加", mathService, "plus", new Class[]{String.class, String.class}, null);
+        } catch (Exception e) {
+            throw new RuntimeException("初始化规则引擎失败", e);
         }
     }
 
 
     /**
-     *对一行数据应用该任务下所有规则，返回转换后的 Map（key 统一为驼峰）。
-     *注意返回的是新 Map，不直接改入参 row，避免调用方拿到改了一半的数据。
+     * 对一行数据应用该任务下所有规则，返回转换后的 Map（key 统一为驼峰）。
+     * 注意返回的是新 Map，不直接改入参 row，避免调用方拿到改了一半的数据。
      */
-    public Map<String,Object> apply(String taskId, Map<String,Object> row) throws Exception{
+    public Map<String, Object> apply(String taskId, Map<String, Object> row) throws Exception {
         //定义一个结果集
         Map<String, Object> result = new HashMap<>();
         //对row进行遍历，赋值给result
-        row.forEach((key,value)-> result.put(key,value));
+        row.forEach((key, value) -> result.put(key, value));
         // QLExpress 的变量池。表达式里出现的 amount、taxAmount 这些名字，都从这个容器里取
         DefaultContext<String, Object> ctx = new DefaultContext<>();
         //方法引用，将result的key和value分别赋值给ctx的key和value
@@ -51,7 +52,7 @@ public class RuleEngine {
                 "SELECT rule_id FROM t_sync_rule WHERE task_id = ? AND enable_status = '1' ORDER BY priority",
                 taskId);
         //进行规则的遍历
-        for(Map<String,Object> r : rules){
+        for (Map<String, Object> r : rules) {
             // queryForList 返回 List<Map>，取出来是 Object，要强转成 String
             String ruleId = (String) r.get("rule_id");
             // 把这条规则的所有条件拼成表达式串

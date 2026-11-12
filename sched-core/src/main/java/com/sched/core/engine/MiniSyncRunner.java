@@ -23,16 +23,19 @@ public class MiniSyncRunner {
     //每批读取行数。先固定 1000。
     private static final int BATCH_SIZE = 1000;
     private final JdbcTemplate jdbcTemplate;
+
     //构造器注入
     public MiniSyncRunner(JdbcTemplate jdbcTemplate) {
         //准备注入构造器
         this.jdbcTemplate = jdbcTemplate;
     }
+
     /**
      * 跑一次全量同步，返回成功的行数
+     *
      * @return
      */
-    public long runOnce(){
+    public long runOnce() {
         //记录开始事件
         long start = System.currentTimeMillis();
         //清空目标表

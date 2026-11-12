@@ -16,13 +16,13 @@ public class SyncConfigLoader {
 
     private static final String TASK_SQL =
             "SELECT task_id, task_code, source_table, target_table, sync_type,"
-          + " batch_size, biz_key, shard_total, block_strategy"
-          + " FROM t_sync_task WHERE task_code = ? AND del_flag = 0 AND enable_status = '1'";
+                    + " batch_size, biz_key, shard_total, block_strategy"
+                    + " FROM t_sync_task WHERE task_code = ? AND del_flag = 0 AND enable_status = '1'";
 
     private static final String MAPPING_SQL =
             "SELECT source_column, target_column, value_type, value"
-          + " FROM t_sync_field_mapping WHERE task_id = ? AND enable_status = '1'"
-          + " ORDER BY field_seq";
+                    + " FROM t_sync_field_mapping WHERE task_id = ? AND enable_status = '1'"
+                    + " ORDER BY field_seq";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -51,11 +51,13 @@ public class SyncConfigLoader {
                 rs.getString("value")), taskId);
     }
 
-    /** 查白名单里的列，返回逗号分隔字符串；查不到返回 null */
+    /**
+     * 查白名单里的列，返回逗号分隔字符串；查不到返回 null
+     */
     public String loadWhitelist(String tableName, String role) {
         List<String> list = jdbcTemplate.query(
                 "SELECT column_names FROM t_sync_table_whitelist"
-              + " WHERE table_name = ? AND table_role = ? AND enable_status = '1'",
+                        + " WHERE table_name = ? AND table_role = ? AND enable_status = '1'",
                 (rs, i) -> rs.getString("column_names"), tableName, role);
         return list.isEmpty() ? null : list.get(0);
     }

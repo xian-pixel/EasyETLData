@@ -5,15 +5,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.UUID;
 
 @Service
 @Slf4j
 public class ErrorDetailService {
-    private JdbcTemplate  jdbcTemplate;
-    public ErrorDetailService(JdbcTemplate jdbcTemplate){
+    private JdbcTemplate jdbcTemplate;
+
+    public ErrorDetailService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
 
     public void record(String batchId, int shardIndex, String errorType, String errorMsg) {

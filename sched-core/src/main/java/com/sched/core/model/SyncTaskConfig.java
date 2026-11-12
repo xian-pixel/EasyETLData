@@ -1,6 +1,8 @@
 package com.sched.core.model;
 
-/** 任务配置（从 t_sync_task 读出来的一行） */
+/**
+ * 任务配置（从 t_sync_task 读出来的一行）
+ */
 public record SyncTaskConfig(
         String taskId,
         String taskCode,

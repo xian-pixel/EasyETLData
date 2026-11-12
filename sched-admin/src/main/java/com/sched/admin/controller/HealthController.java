@@ -19,6 +19,7 @@ public class HealthController {
     public HealthController(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
+
     private final Log log = LogFactory.getLog(HealthController.class);// 设置log日志变量
 
     @GetMapping("/health")
