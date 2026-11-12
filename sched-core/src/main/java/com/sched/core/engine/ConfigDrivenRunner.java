@@ -5,10 +5,10 @@ import com.sched.core.log.BatchLogService;
 import com.sched.core.log.ErrorDetailService;
 import com.sched.core.model.FieldMapping;
 import com.sched.core.model.SyncTaskConfig;
+import com.sched.core.rule.RuleEngine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
@@ -28,21 +28,25 @@ public class ConfigDrivenRunner {
     private final TransactionTemplate transactionTemplate;
     //注入错误详情服务
     private final ErrorDetailService errorDetailService;
+    //注入规则引擎
+    private final RuleEngine ruleEngine;
 
     public ConfigDrivenRunner(JdbcTemplate jdbcTemplate,SyncConfigLoader syncConfigLoader,BatchLogService batchLogService,TransactionTemplate transactionTemplate
-    ,ErrorDetailService errorDetailService) {
+    ,ErrorDetailService errorDetailService,RuleEngine ruleEngine) {
         this.jdbcTemplate = jdbcTemplate;
         this.syncConfigLoader = syncConfigLoader;
         this.batchLogService = batchLogService;
         this.transactionTemplate = transactionTemplate;
         this.errorDetailService =   errorDetailService;
+        this.ruleEngine = ruleEngine;
     }
     public long run (String taskCode){
         //读取配置
         SyncTaskConfig taskConfig = syncConfigLoader.loadTask(taskCode); //通过SyncConfigLoader读取配置并且赋值给taskConfig对象
         long start = System.currentTimeMillis();
         //开始执行日志
-        String batchId = batchLogService.start(taskConfig.taskId(),0,taskConfig.shardTotal());
+        // 当前是单机执行，分片总数固定记 1；M8 接入分片后再传真实值
+        String batchId = batchLogService.start(taskConfig.taskId(), 0, 1);
         long total = 0;
         //尝试执行核心搬运逻辑
         try{
@@ -62,9 +66,8 @@ public class ConfigDrivenRunner {
         return total;
     }
 
-    //同步核心搬运逻辑
-//    @Transactional(rollbackFor = Exception.class)//添加事务，如果有异常，全部回滚
-    public long runOnce(String taskCode,SyncTaskConfig taskConfig,String batchId){
+    //同步核心搬运逻辑（事务由 run() 里的 TransactionTemplate 控制，这里不能再加 @Transactional）
+    public long runOnce(String taskCode,SyncTaskConfig taskConfig,String batchId) {
         List<FieldMapping> fieldMappings = syncConfigLoader.loadMappings(taskConfig.taskId());//通过SyncConfigLoader读取配置并且赋值给fieldMappings对象
         String sourceWhitelist = syncConfigLoader.loadWhitelist(taskConfig.sourceTable(), "SOURCE");//查询该任务的源表是否在白名单配置表里
         String targetWhitelist = syncConfigLoader.loadWhitelist(taskConfig.targetTable(), "TARGET");//查询该任务的目标表是否在白名单配置表里
@@ -103,16 +106,35 @@ public class ConfigDrivenRunner {
             //如果resultList不是空，那么拼接插入数据
             List<Object[]> args = new ArrayList<>(resultList.size());
             for (Map<String, Object> row : resultList) {
+                // ① 新增：先跑规则，netAmount / net_amount 之类的计算值在这一步产生
+                Map<String, Object> converted;
+                try {
+                    converted = ruleEngine.apply(taskConfig.taskId(), row);
+                } catch (Exception e) {
+                    // 规则异常必须留痕且让批次可见地失败，禁止静默跳过
+                    log.error("任务 {} 规则执行失败", taskCode, e);
+                    errorDetailService.record(batchId, 0, "RULE_EXECUTE_ERROR", e.getMessage());
+                    // 必须包装成运行时异常：apply 声明的是受检异常 Exception
+                    throw new IllegalStateException("规则执行失败：" + e.getMessage(), e);
+                }
+                // ② 新增：再跑映射，把规则产生的值填充到目标表的字段里
                 Object[] arg = new Object[targetColumnList.size()];
                 for (int i = 0; i < targetColumnList.size(); i++) {
-                    //获取fieldmapping里字段值类型是否是column，以便填充datasource字段值
                     FieldMapping m = fieldMappings.get(i);
-                    arg[i] = "COLUMN".equals(m.valueType())
-                            ? row.get(m.sourceColumn())
-                            : m.value();
+                    if ("RULE".equals(m.valueType())) {
+                        // 规则计算列：源表没有这一列，值只存在于 converted 里，且 key 已被转成驼峰
+                        Object v = converted.get(m.targetColumn());
+                        arg[i] = (v != null) ? v : converted.get(ruleEngine.camel(m.targetColumn()));
+                    } else if ("COLUMN".equals(m.valueType())) {
+                        // 源表列：从规则转换后的行取值
+                        Object v = converted.get(m.sourceColumn());
+                        arg[i] = (v != null) ? v : converted.get(ruleEngine.camel(m.sourceColumn()));
+                    } else {
+                        // TEXT 等常量列：直接取配置的常量值
+                        arg[i] = m.value();
+                    }
                 }
                 args.add(arg);
-                log.info("要插入的值是{}",args.toArray());
             }
             //查找出报错记录是哪条
             try{

@@ -25,7 +25,7 @@ public class RuleEngine {
         //初始化规则引擎
         try{
             runner.addFunctionOfServiceMethod("减",mathService,"minus",new Class[]{String.class,String.class},null);
-            runner.addFunctionOfServiceMethod("加",mathService,"add",new Class[]{String.class,String.class},null);
+            runner.addFunctionOfServiceMethod("加",mathService,"plus",new Class[]{String.class,String.class},null);
         }catch(Exception e){
             throw new RuntimeException("初始化规则引擎失败",e);
         }
@@ -156,7 +156,7 @@ public class RuleEngine {
      * 为什么必须转：t_sync_rule_condition.property_name 配的是驼峰，
      * 而数据库查出来的列名是下划线；不转就永远匹配不上，表现是“规则配了但不生效”。
      */
-    private String camel(String column) {
+    public  final String camel(String column) {
         StringBuilder sb = new StringBuilder();
         boolean upper = false;                      // 标记“下一个字符要转大写”
 
