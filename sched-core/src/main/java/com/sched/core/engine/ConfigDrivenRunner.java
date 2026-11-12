@@ -6,6 +6,7 @@ import com.sched.core.log.ErrorDetailService;
 import com.sched.core.model.FieldMapping;
 import com.sched.core.model.SyncTaskConfig;
 import com.sched.core.rule.RuleEngine;
+import com.sched.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -124,11 +125,11 @@ public class ConfigDrivenRunner {
                     if ("RULE".equals(m.valueType())) {
                         // 规则计算列：源表没有这一列，值只存在于 converted 里，且 key 已被转成驼峰
                         Object v = converted.get(m.targetColumn());
-                        arg[i] = (v != null) ? v : converted.get(ruleEngine.camel(m.targetColumn()));
+                        arg[i] = (v != null) ? v : converted.get(CommonUtils.camel(m.targetColumn()));
                     } else if ("COLUMN".equals(m.valueType())) {
                         // 源表列：从规则转换后的行取值
                         Object v = converted.get(m.sourceColumn());
-                        arg[i] = (v != null) ? v : converted.get(ruleEngine.camel(m.sourceColumn()));
+                        arg[i] = (v != null) ? v : converted.get(CommonUtils.camel(m.sourceColumn()));
                     } else {
                         // TEXT 等常量列：直接取配置的常量值
                         arg[i] = m.value();
