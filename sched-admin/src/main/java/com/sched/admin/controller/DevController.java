@@ -1,5 +1,6 @@
 package com.sched.admin.controller;
 
+import com.sched.admin.engine.ShardRunner;
 import com.sched.core.model.SyncReturnVo;
 import com.sched.enmu.ResultValue;
 import com.sched.entity.dto.vo.Result;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,6 +25,8 @@ public class DevController {
     private MiniSyncRunner miniSyncRunner;
     @Resource
     private ConfigDrivenRunner configDrivenRunner;
+    @Resource
+    private ShardRunner shardRunner;
 
     @GetMapping("/run-once")
     public Map<String, Object> runOnce() {
@@ -43,6 +47,24 @@ public class DevController {
         long rows = configDrivenRunner.run(taskCode);
         map.put("result:", new SyncReturnVo<Long>(taskCode, rows));
         log.info("全量同步执行完成~~~");
+        return Result.<Map<String, Object>>builder()
+                .code(ResultValue.SUCCESS.getCode())
+                .msg(ResultValue.SUCCESS.getMsg())
+                .data(map)
+                .build();
+    }
+
+
+
+    @GetMapping("/run-shard")
+    public Result<Map<String, Object>> runShard(@RequestParam String taskCode) throws Exception {
+        Map<String, Object> map = new LinkedHashMap<>();
+        log.info("开始执行分片同步~~~");
+        List<Long> counts = shardRunner.runAll(taskCode);            // 每片行数，顺序即分片号
+        long total = counts.stream().mapToLong(Long::longValue).sum();
+        map.put("shards", counts);
+        map.put("total", total);
+        log.info("分片同步执行完成~~~ 各片={} 合计={}", counts, total);
         return Result.<Map<String, Object>>builder()
                 .code(ResultValue.SUCCESS.getCode())
                 .msg(ResultValue.SUCCESS.getMsg())

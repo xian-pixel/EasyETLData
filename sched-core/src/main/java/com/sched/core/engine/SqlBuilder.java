@@ -23,7 +23,7 @@ public class SqlBuilder {
     }
 
     //查询sql生成器
-    public static String buildSelect(String sourceTable, List<String> sourceColumns, List<String> orderByColumns, String whitelistColumns) {
+    public static String buildSelect(String sourceTable, List<String> sourceColumns, List<String> orderByColumns, String whitelistColumns,String whereClause) {
         assertSafeName(sourceTable, "表");          // 表名只做格式校验
         Set<String> allowed = toAllowedSet(whitelistColumns, sourceTable);
         sourceColumns.forEach(c -> assertAllowed(c, allowed, "列"));
@@ -31,7 +31,9 @@ public class SqlBuilder {
 
         String cols = String.join(", ", sourceColumns);
         String orderBy = String.join(", ", orderByColumns);
-        return "SELECT " + cols + " FROM " + sourceTable + " ORDER BY " + orderBy;
+        //增加where条件，为分片做准备
+        String tail = (whereClause == null || whereClause.isBlank())? "" : " WHERE " + whereClause;
+        return "SELECT " + cols + " FROM " + sourceTable + tail+ " ORDER BY " + orderBy;
     }
 
     //插入sql生成器

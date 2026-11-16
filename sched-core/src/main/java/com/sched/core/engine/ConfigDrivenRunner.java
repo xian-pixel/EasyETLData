@@ -53,7 +53,7 @@ public class ConfigDrivenRunner {
         //尝试执行核心搬运逻辑
         try {
             //添加事务
-            total = transactionTemplate.execute(status -> runOnce(taskCode, taskConfig, batchId));
+            total = transactionTemplate.execute(status -> runOnce(taskCode, taskConfig, batchId,null, 0, 1));
             //执行结束日志
             batchLogService.finish(batchId, 0, "SUCCESS", total, 0, null, System.currentTimeMillis() - start);
         } catch (Exception e) {
@@ -67,9 +67,34 @@ public class ConfigDrivenRunner {
 
         return total;
     }
+    public long runShard(String taskCode, int shardIndex, int shardTotal) {
+        SyncTaskConfig taskConfig = syncConfigLoader.loadTask(taskCode);
+        long start = System.currentTimeMillis();
+
+        // ③ 日志必须写真实分片号，否则 4 片全记成 shard_index=0，8.5 铁律 3 的重试就失效
+        String batchId = batchLogService.start(taskConfig.taskId(), shardIndex, shardTotal);
+
+        String where = shardTotal <= 1 ? null
+                : "MOD(CRC32(order_id), " + shardTotal + ") = " + shardIndex;
+
+        long total = 0;
+        try {
+            total = transactionTemplate.execute(status ->
+                    runOnce(taskCode, taskConfig, batchId, where, shardIndex, shardTotal));
+            batchLogService.finish(batchId, shardIndex, "SUCCESS", total, 0, null,
+                    System.currentTimeMillis() - start);
+        } catch (Exception e) {
+            log.error("分片执行失败 taskCode={} shard={}/{}", taskCode, shardIndex, shardTotal, e);
+            batchLogService.finish(batchId, shardIndex, "FAILED", 0, total, e.getMessage(),
+                    System.currentTimeMillis() - start);
+            throw e;   // 必须抛：ShardRunner 里靠 f.get() 才能看到子线程的异常
+        }
+        return total;
+    }
 
     //同步核心搬运逻辑（事务由 run() 里的 TransactionTemplate 控制，这里不能再加 @Transactional）
-    public long runOnce(String taskCode, SyncTaskConfig taskConfig, String batchId) {
+    public long runOnce(String taskCode, SyncTaskConfig taskConfig, String batchId,
+                        String where, int shardIndex, int shardTotal) {
         List<FieldMapping> fieldMappings = syncConfigLoader.loadMappings(taskConfig.taskId());//通过SyncConfigLoader读取配置并且赋值给fieldMappings对象
         String sourceWhitelist = syncConfigLoader.loadWhitelist(taskConfig.sourceTable(), "SOURCE");//查询该任务的源表是否在白名单配置表里
         String targetWhitelist = syncConfigLoader.loadWhitelist(taskConfig.targetTable(), "TARGET");//查询该任务的目标表是否在白名单配置表里
@@ -83,18 +108,25 @@ public class ConfigDrivenRunner {
         //读取需要排序的字段list
         List<String> orderByList = List.of(taskConfig.bizKey().split(","));
         //构建查询sql
-        String selectSql = SqlBuilder.buildSelect(taskConfig.sourceTable(), sourceColumnList, orderByList, sourceWhitelist);
+        String selectSql = SqlBuilder.buildSelect(taskConfig.sourceTable(), sourceColumnList, orderByList, sourceWhitelist,where);
         //构建插入sql
         String insertSql = SqlBuilder.buildInsert(taskConfig.targetTable(), targetColumnList, targetWhitelist);
         log.info("sql构建完成，查询sql为：{}，\n插入sql为：{}", selectSql, insertSql);
         //先进行判断，判断源表查询的条数是否为0，如果为0，那么不进行删除目标表的数据
         if (jdbcTemplate.queryForList(selectSql + " LIMIT 1").isEmpty()) {
-            log.info("源表查询的条数为0，不进行删除目标表的数据");
+            if (where != null) {
+                log.info("分片 {}/{} 本片无数据，跳过", shardIndex, shardTotal);
+                return 0;                      // 空分片：不删目标表、不报异常
+            }
             //抛出异常
             throw new IllegalStateException("源表查询的条数为0，不进行删除目标表的数据");
         }
-        // 先删后插，删除task任务目标表的数据(目前是全量删除)
-        jdbcTemplate.update("DELETE FROM " + taskConfig.targetTable());
+        // 先删后插，删除task任务目标表的数据(修改为按照where条件删除)，也就是根据分片进行删除
+        if (where == null) {
+            jdbcTemplate.update("DELETE FROM " + taskConfig.targetTable());
+        } else {
+            jdbcTemplate.update("DELETE FROM " + taskConfig.targetTable() + " WHERE " + where);
+        }
         log.info("已清空目标表 {}", taskConfig.targetTable());
         //分批执行查询sql
         long offset = 0;
@@ -115,7 +147,7 @@ public class ConfigDrivenRunner {
                 } catch (Exception e) {
                     // 规则异常必须留痕且让批次可见地失败，禁止静默跳过
                     log.error("任务 {} 规则执行失败", taskCode, e);
-                    errorDetailService.record(batchId, 0, "RULE_EXECUTE_ERROR", e.getMessage());
+                    errorDetailService.record(batchId, shardIndex, "RULE_EXECUTE_ERROR", e.getMessage());
                     // 必须包装成运行时异常：apply 声明的是受检异常 Exception
                     throw new IllegalStateException("规则执行失败：" + e.getMessage(), e);
                 }
@@ -143,7 +175,7 @@ public class ConfigDrivenRunner {
                 //执行插入sql
                 jdbcTemplate.batchUpdate(insertSql, args);
             } catch (Exception e) {
-                errorDetailService.record(batchId, 0, "SQL_ERROR", e.getMessage());
+                errorDetailService.record(batchId, shardIndex, "SQL_ERROR", e.getMessage());
                 throw e;      // 或者记录后继续下一批（取决于是否要求"部分成功"）
             }
 
