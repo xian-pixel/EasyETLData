@@ -3,6 +3,7 @@ package com.sched.admin.engine;
 import com.sched.core.config.SyncConfigLoader;
 import com.sched.core.engine.ConfigDrivenRunner;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.concurrent.*;
  * 并发工程服务
  */
 @Service
+@Slf4j
 public class ShardRunner {
 
     private final ConfigDrivenRunner runner;
@@ -42,6 +44,22 @@ public class ShardRunner {
             counts.add(f.get());        // get() 会把子线程的异常抛回来，不要吞
         }
         return counts;
+    }
+    /**
+     * 故障转移专用：后台重跑单一片。
+     * 这里用 pool.submit 而不是直接 runner.runShard：
+     * 一个分片可能要跑几分钟，同步调用会把定时任务线程占住，心跳也跟着停。
+     */
+    public void submitOne(String taskCode, int shardIndex, int shardTotal) {
+        pool.submit(() -> {
+            try {
+                runner.runShard(taskCode, shardIndex, shardTotal);
+            } catch (Exception e) {
+                // 线程池里抛出的异常没人接得住，必须自己记；这一片重跑失败需人工介入
+                log.error("故障转移重跑失败 taskCode={} shard={}/{}",
+                        taskCode, shardIndex, shardTotal, e);
+            }
+        });
     }
 
     /** 容器关闭时释放线程池，否则正在跑的分片会被硬砍 */

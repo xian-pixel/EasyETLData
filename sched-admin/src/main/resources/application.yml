@@ -10,6 +10,27 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
+  task:
+    scheduling:
+      pool:
+        # 默认只有 1 个线程，所有 @Scheduled 会串行排队：
+        # 心跳会被故障转移扫描卡住，反过来又被判定"失联"，自己把自己摘了
+        size: 3
+      thread-name-prefix: sched-
+
+sched:
+  executor:
+    app-name: sched-admin
+    # 留空 = 自动探测 本机IP + server.port；多网卡或容器环境再显式指定
+    address:
+  heartbeat:
+    interval-ms: 30000        # 心跳周期
+    timeout-seconds: 90        # 3 个周期没心跳判定失联
+  failover:
+    interval-ms: 30000        # 故障转移扫描周期
+    batch-timeout-minutes: 30 # 必须大于最长正常任务耗时，否则误杀正在跑的任务
+  lock:
+    lease-seconds: 90          # 主租约，建议 = 3 × failover.interval
 
 mybatis-plus:
   configuration:
