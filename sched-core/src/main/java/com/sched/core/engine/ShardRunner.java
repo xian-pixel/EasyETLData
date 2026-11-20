@@ -1,4 +1,4 @@
-package com.sched.admin.engine;
+package com.sched.core.engine;
 
 import com.sched.core.config.SyncConfigLoader;
 import com.sched.core.engine.ConfigDrivenRunner;

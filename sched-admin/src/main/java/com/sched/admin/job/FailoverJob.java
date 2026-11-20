@@ -1,7 +1,7 @@
 // sched-admin/src/main/java/com/sched/admin/job/FailoverJob.java
 package com.sched.admin.job;
 
-import com.sched.admin.engine.ShardRunner;
+import com.sched.core.engine.ShardRunner;
 import com.sched.core.model.StuckBatch;
 import com.sched.core.registry.ExecutorRegistryService;
 import com.sched.core.registry.MasterLockService;
