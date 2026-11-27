@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>调度平台 · 个人中心联调台</title>
+    <link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+<div class="page">
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">S</span>
+            <div>
+                <h1>调度平台 · 个人中心联调台</h1>
+                <p class="sub">接口：/api/user/** 与 /api/file/**　·　当前身份由后端
+                    <code>sched.security.dev-user-id</code> 决定</p>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <span id="me-badge" class="badge">未连接</span>
+            <button type="button" id="btn-refresh-me" class="btn ghost">刷新身份</button>
+        </div>
+    </header>
+
+    <div id="protocol-warn" class="warn" hidden>
+        当前以 file:// 方式打开，浏览器会拦截跨源请求。请启动后端后访问
+        <code>http://localhost:8080/index.html</code>
+    </div>
+
+    <nav class="tabs">
+        <button type="button" class="tab active" data-tab="mine">我的资料</button>
+        <button type="button" class="tab" data-tab="users">用户管理</button>
+        <button type="button" class="tab" data-tab="files">文件中心</button>
+    </nav>
+
+    <main>
+        <!-- ==================== 我的资料 ==================== -->
+        <section id="panel-mine" class="panel">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>当前身份</h2>
+                    <div class="profile">
+                        <div id="me-avatar" class="avatar muted">无头像</div>
+                        <dl id="me-info" class="kv">
+                            <dd class="muted">加载中…</dd>
+                        </dl>
+                    </div>
+                    <div class="row">
+                        <label class="file-btn">
+                            上传头像
+                            <input type="file" id="avatar-input" accept=".jpg,.jpeg,.png,.gif,.webp" hidden/>
+                        </label>
+                        <span class="muted small">仅图片，不超过 2MB</span>
+                    </div>
+                </div>
+
+                <form class="card" id="form-me">
+                    <h2>修改我的资料</h2>
+                    <div class="form-grid">
+                        <label>昵称<input name="nickname" maxlength="64"/></label>
+                        <label>真实姓名<input name="realName" maxlength="64"/></label>
+                        <label>手机号<input name="mobile" maxlength="11" placeholder="13xxxxxxxxx"/></label>
+                        <label>邮箱<input name="email" type="email" maxlength="128"/></label>
+                        <label>性别
+                            <select name="gender">
+                                <option value="0">未知</option>
+                                <option value="1">男</option>
+                                <option value="2">女</option>
+                            </select>
+                        </label>
+                        <label>部门<input name="deptName" maxlength="128"/></label>
+                    </div>
+                    <label class="full">个人简介<textarea name="profile" rows="3" maxlength="500"></textarea></label>
+                    <button type="submit" class="btn primary">保存资料</button>
+                </form>
+            </div>
+
+            <form class="card" id="form-password">
+                <h2>修改密码</h2>
+                <div class="form-grid">
+                    <label>原密码<input name="oldPassword" type="password" required/></label>
+                    <label>新密码<input name="newPassword" type="password" minlength="8" maxlength="64" required
+                                      placeholder="8-64 位"/></label>
+                </div>
+                <button type="submit" class="btn primary">提交修改</button>
+            </form>
+        </section>
+
+        <!-- ==================== 用户管理 ==================== -->
+        <section id="panel-users" class="panel" hidden>
+            <form class="card" id="form-create-user">
+                <h2>新增用户</h2>
+                <div class="form-grid">
+                    <label>登录名 *
+                        <input name="username" required pattern="[A-Za-z0-9_]{4,64}"
+                               placeholder="4-64 位字母/数字/下划线"/>
+                    </label>
+                    <label>密码 *
+                        <input name="password" type="password" required minlength="8" maxlength="64"
+                               placeholder="8-64 位"/>
+                    </label>
+                    <label>昵称<input name="nickname" maxlength="64"/></label>
+                    <label>真实姓名<input name="realName" maxlength="64"/></label>
+                    <label>手机号<input name="mobile" maxlength="11" placeholder="13xxxxxxxxx"/></label>
+                    <label>邮箱<input name="email" type="email" maxlength="128"/></label>
+                    <label>性别
+                        <select name="gender">
+                            <option value="0">未知</option>
+                            <option value="1">男</option>
+                            <option value="2">女</option>
+                        </select>
+                    </label>
+                    <label>部门<input name="deptName" maxlength="128"/></label>
+                </div>
+                <label class="full">个人简介<textarea name="profile" rows="2" maxlength="500"></textarea></label>
+                <button type="submit" class="btn primary">创建用户</button>
+            </form>
+
+            <div class="card">
+                <div class="card-head">
+                    <h2>用户列表</h2>
+                    <div class="row">
+                        <input id="user-keyword" placeholder="登录名 / 昵称 / 姓名"/>
+                        <button type="button" id="btn-search-user" class="btn">搜索</button>
+                    </div>
+                </div>
+                <p class="muted small">后端目前无角色体系：修改与删除只能操作"当前身份"这一个账号，操作他人会返回"只能操作自己的账号"。</p>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>用户ID</th>
+                            <th>登录名</th>
+                            <th>昵称</th>
+                            <th>真实姓名</th>
+                            <th>手机号</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="user-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="pager">
+                    <button type="button" id="user-prev" class="btn ghost">上一页</button>
+                    <span id="user-page-info" class="muted small">-</span>
+                    <button type="button" id="user-next" class="btn ghost">下一页</button>
+                </div>
+            </div>
+
+            <div class="card" id="detail-card" hidden>
+                <div class="card-head">
+                    <h2>用户详情</h2>
+                    <button type="button" id="btn-close-detail" class="btn ghost">关闭</button>
+                </div>
+                <pre id="detail-pre" class="json"></pre>
+            </div>
+        </section>
+
+        <!-- ==================== 文件中心 ==================== -->
+        <section id="panel-files" class="panel" hidden>
+            <form class="card" id="form-upload">
+                <h2>上传文件</h2>
+                <div class="form-grid">
+                    <label>业务类型
+                        <select name="bizType">
+                            <option value="ATTACHMENT">ATTACHMENT 普通附件</option>
+                            <option value="AVATAR">AVATAR 头像</option>
+                            <option value="EXPORT">EXPORT 导出文件</option>
+                        </select>
+                    </label>
+                    <label>业务ID（可选）<input name="bizId" type="number" min="1" placeholder="如 1"/></label>
+                    <label>文件 *
+                        <input name="file" type="file" required
+                               accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"/>
+                    </label>
+                </div>
+                <p class="muted small">头像仅限图片且不超过 2MB；其他类型不超过 10MB，扩展名需在白名单内。</p>
+                <button type="submit" class="btn primary">上传</button>
+            </form>
+
+            <div class="card">
+                <div class="card-head">
+                    <h2>我的文件</h2>
+                    <button type="button" id="btn-refresh-files" class="btn ghost">刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>文件ID</th>
+                            <th>业务类型</th>
+                            <th>文件名</th>
+                            <th>扩展名</th>
+                            <th>大小</th>
+                            <th>上传时间</th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="file-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="pager">
+                    <button type="button" id="file-prev" class="btn ghost">上一页</button>
+                    <span id="file-page-info" class="muted small">-</span>
+                    <button type="button" id="file-next" class="btn ghost">下一页</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- 编辑用户弹窗 -->
+<dialog id="user-edit-dialog" class="dialog">
+    <form id="form-edit-user" method="dialog">
+        <div class="card-head">
+            <h2>编辑用户</h2>
+            <button type="button" id="btn-close-edit" class="btn ghost">取消</button>
+        </div>
+        <input type="hidden" name="userId"/>
+        <div class="form-grid">
+            <label>昵称<input name="nickname" maxlength="64"/></label>
+            <label>真实姓名<input name="realName" maxlength="64"/></label>
+            <label>手机号<input name="mobile" maxlength="11"/></label>
+            <label>邮箱<input name="email" type="email" maxlength="128"/></label>
+            <label>性别
+                <select name="gender">
+                    <option value="0">未知</option>
+                    <option value="1">男</option>
+                    <option value="2">女</option>
+                </select>
+            </label>
+            <label>部门<input name="deptName" maxlength="128"/></label>
+        </div>
+        <label class="full">个人简介<textarea name="profile" rows="3" maxlength="500"></textarea></label>
+        <button type="submit" class="btn primary">保存</button>
+    </form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="./app.js"></script>
+</body>
+</html>

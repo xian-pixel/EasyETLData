@@ -1,5 +1,6 @@
 package com.sched.admin.handler;
 
+import com.sched.core.support.BizException;
 import com.sched.entity.dto.vo.Result;
 import com.sched.enmu.ResultValue;
 import jakarta.validation.ConstraintViolation;
@@ -12,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -80,6 +82,23 @@ public class GlobalExceptionHandler {
         return fail(ResultValue.DATA_NOT_FOUND, "请求路径不存在");
     }
 
+    /**
+     * 业务异常：message 是面向用户的可读文案，按异常自带 code 返回。
+     * 注意这里只回显服务端主动构造的文案，绝不回显第三方/数据库异常信息。
+     */
+    @ExceptionHandler(BizException.class)
+    public Result<Void> handleBiz(BizException e) {
+        log.warn("业务异常 code={} msg={}", e.getCode(), e.getMessage());
+        return Result.fail(e.getCode(), e.getMessage());
+    }
+
+    /** 上传文件超过 multipart 上限，被容器直接拒绝 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> handleUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("上传文件超过大小限制：{}", e.getMessage());
+        return fail(ResultValue.PARAM_FORMAT_ERROR, "上传文件超过大小限制");
+    }
+
     /** 数据库操作异常：日志留全栈便于排查，前端只给通用提示 */
     @ExceptionHandler(DataAccessException.class)
     public Result<Void> handleDataAccess(DataAccessException e) {
@@ -95,10 +114,7 @@ public class GlobalExceptionHandler {
     }
 
     private Result<Void> fail(ResultValue value, String msg) {
-        return Result.<Void>builder()
-                .code(value.getCode())
-                .msg(msg)
-                .build();
+        return Result.fail(value.getCode(), msg);
     }
 
     private String formatFieldError(FieldError error) {
