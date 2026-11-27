@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.sched.core.service.operlog.OperLogService;
 import com.sched.core.vo.operlog.OperLogVO;
-import com.sched.dao.entity.operlog.mapper.OperLogMapper;
+import com.sched.dao.mapper.OperLogMapper;
 import com.sched.dao.entity.operlog.OperLogRecord;
 import com.sched.dao.entity.user.SchedUser;
 import com.sched.dao.mapper.SchedUserMapper;
