@@ -3,6 +3,8 @@
 package com.sched.core.registry;
 
 import com.sched.core.model.StuckBatch;
+import com.sched.enmu.BatchStatus;
+import com.sched.enmu.EnableStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -57,10 +59,11 @@ public class ExecutorRegistryService {
     public void beat() {
         jdbcTemplate.update(
                 "INSERT INTO t_sync_executor(executor_id, app_name, address, last_heartbeat, enable_status)"
-                        + " VALUES(?,?,?,NOW(),'1')"
+                        + " VALUES(?,?,?,NOW(),?)"
                         + " ON DUPLICATE KEY UPDATE executor_id=VALUES(executor_id),"
-                        + " last_heartbeat=NOW(), enable_status='1'",
-                executorId, appName, address);
+                        + " last_heartbeat=NOW(), enable_status=?",
+                executorId, appName, address,
+                EnableStatus.ENABLED.getCode(), EnableStatus.ENABLED.getCode());
         log.debug("心跳上报 executorId={} address={}", executorId, address);
     }
 
@@ -69,10 +72,10 @@ public class ExecutorRegistryService {
      */
     public int disableDead() {
         return jdbcTemplate.update(
-                "UPDATE t_sync_executor SET enable_status='0'"
+                "UPDATE t_sync_executor SET enable_status=?"
                         + " WHERE last_heartbeat < DATE_SUB(NOW(), INTERVAL ? SECOND)"
-                        + " AND enable_status='1'",
-                heartbeatTimeoutSeconds);
+                        + " AND enable_status=?",
+                EnableStatus.DISABLED.getCode(), heartbeatTimeoutSeconds, EnableStatus.ENABLED.getCode());
     }
 
     /**
@@ -82,14 +85,14 @@ public class ExecutorRegistryService {
         return jdbcTemplate.query(
                 "SELECT b.batch_id, t.task_code, b.shard_index, b.shard_total"
                         + " FROM t_sync_batch_log b JOIN t_sync_task t ON t.task_id = b.task_id"
-                        + " WHERE b.status='RUNNING'"
+                        + " WHERE b.status=?"
                         + " AND b.start_time < DATE_SUB(NOW(), INTERVAL ? MINUTE)",
                 (rs, i) -> new StuckBatch(
                         rs.getString("batch_id"),
                         rs.getString("task_code"),
                         rs.getInt("shard_index"),
                         rs.getInt("shard_total")),
-                timeoutMinutes);
+                BatchStatus.RUNNING.getCode(), timeoutMinutes);
     }
 
     /**
@@ -97,9 +100,9 @@ public class ExecutorRegistryService {
      */
     public boolean markFailed(String batchId, int shardIndex, String reason) {
         int rows = jdbcTemplate.update(
-                "UPDATE t_sync_batch_log SET status='FAILED', end_time=NOW(), error_msg=?"
-                        + " WHERE batch_id=? AND shard_index=? AND status='RUNNING'",
-                reason, batchId, shardIndex);
-        return rows == 1;
+                "UPDATE t_sync_batch_log SET status=?, end_time=NOW(), error_msg=?"
+                        + " WHERE batch_id=? AND shard_index=? AND status=?",
+                BatchStatus.FAILED.getCode(), reason, batchId, shardIndex, BatchStatus.RUNNING.getCode());
+        return rows > 0;
     }
 }

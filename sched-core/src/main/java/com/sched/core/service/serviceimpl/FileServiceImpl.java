@@ -12,7 +12,10 @@ import com.sched.core.support.BizException;
 import com.sched.core.support.CurrentUserProvider;
 import com.sched.dao.entity.FileRecord;
 import com.sched.dao.mapper.FileRecordMapper;
+import com.sched.enmu.EnableStatus;
+import com.sched.enmu.FileBizType;
 import com.sched.enmu.ResultValue;
+import com.sched.enmu.StorageType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,16 +43,16 @@ import java.util.Set;
 public class FileServiceImpl implements FileService {
 
     private static final long NOT_DELETED = 0L;
-    private static final long STATUS_VALID = 1L;
 
     /** 头像允许的图片类型 */
     private static final Set<String> IMAGE_EXT = Set.of("jpg", "jpeg", "png", "gif", "webp");
     /** 普通附件允许的类型 */
     private static final Set<String> DOC_EXT = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "zip");
     /** 业务类型白名单，防止按前端传值创建任意目录 */
-    private static final Set<String> BIZ_TYPES = Set.of("AVATAR", "ATTACHMENT", "EXPORT");
-
-    private static final String BIZ_AVATAR = "AVATAR";
+    private static final Set<String> BIZ_TYPES = Set.of(
+            FileBizType.AVATAR.getCode(),
+            FileBizType.ATTACHMENT.getCode(),
+            FileBizType.EXPORT.getCode());
     private static final long AVATAR_MAX_SIZE = 2L * 1024 * 1024;
     private static final long DEFAULT_MAX_SIZE = 10L * 1024 * 1024;
 
@@ -74,7 +77,7 @@ public class FileServiceImpl implements FileService {
         String ext = StringUtils.getFilenameExtension(originalName);
         ext = ext == null ? "" : ext.toLowerCase(Locale.ROOT);
 
-        boolean avatar = BIZ_AVATAR.equals(type);
+        boolean avatar = FileBizType.AVATAR.getCode().equals(type);
         boolean extAllowed = avatar ? IMAGE_EXT.contains(ext) : (IMAGE_EXT.contains(ext) || DOC_EXT.contains(ext));
         if (!extAllowed) {
             throw new BizException(ResultValue.PARAM_FORMAT_ERROR, "不支持的文件类型：" + ext);
@@ -100,9 +103,9 @@ public class FileServiceImpl implements FileService {
         record.setExt(ext);
         record.setContentType(file.getContentType());
         record.setFileSize(file.getSize());
-        record.setStorageType("LOCAL");
+        record.setStorageType(StorageType.LOCAL.getCode());
         record.setObjectKey(objectKey);
-        record.setStatus((int) STATUS_VALID);
+        record.setStatus(EnableStatus.ENABLED.getIntCode());
         record.setDeleted(NOT_DELETED);
         try {
             fileRecordMapper.insert(record);
@@ -145,7 +148,7 @@ public class FileServiceImpl implements FileService {
                 .eq(FileRecord::getFileId, fileId)
                 .eq(FileRecord::getDeleted, NOT_DELETED)
                 .set(FileRecord::getDeleted, System.currentTimeMillis())
-                .set(FileRecord::getStatus, 0));
+                .set(FileRecord::getStatus, EnableStatus.DISABLED.getIntCode()));
         log.info("逻辑删除文件 fileId={}", fileId);
     }
 
@@ -156,7 +159,7 @@ public class FileServiceImpl implements FileService {
         FileRecord record = fileRecordMapper.selectOne(Wrappers.<FileRecord>lambdaQuery()
                 .eq(FileRecord::getFileId, fileId)
                 .eq(FileRecord::getDeleted, NOT_DELETED)
-                .eq(FileRecord::getStatus, STATUS_VALID));
+                .eq(FileRecord::getStatus, EnableStatus.ENABLED.getIntCode()));
         if (record == null) {
             throw new BizException(ResultValue.DATA_NOT_FOUND, "文件不存在");
         }
@@ -167,7 +170,7 @@ public class FileServiceImpl implements FileService {
     }
 
     private String normalizeBizType(String bizType) {
-        String type = StringUtils.hasText(bizType) ? bizType.toUpperCase(Locale.ROOT) : "ATTACHMENT";
+        String type = StringUtils.hasText(bizType) ? bizType.toUpperCase(Locale.ROOT) : FileBizType.ATTACHMENT.getCode();
         if (!BIZ_TYPES.contains(type)) {
             throw new BizException(ResultValue.PARAM_FORMAT_ERROR, "不支持的业务类型");
         }

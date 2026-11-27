@@ -1,6 +1,7 @@
 package com.sched.admin.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.sched.annotation.OperLog;
 import com.sched.core.dto.ChangePasswordDTO;
 import com.sched.core.dto.UserCreateDTO;
 import com.sched.core.dto.UserUpdateDTO;
@@ -34,18 +35,21 @@ public class UserController {
     private final UserService userService;
 
     /** 新增用户 */
+    @OperLog(module = "个人中心", action = "新增用户")
     @PostMapping
     public Result<UserVO> create(@Valid @RequestBody UserCreateDTO dto) {
         return Result.success(userService.createUser(dto));
     }
 
     /** 修改指定用户资料（服务层校验只能改自己） */
+    @OperLog(module = "个人中心", action = "修改用户")
     @PutMapping("/{userId}")
     public Result<UserVO> update(@PathVariable Long userId, @Valid @RequestBody UserUpdateDTO dto) {
         return Result.success(userService.updateUser(userId, dto));
     }
 
     /** 逻辑删除指定用户（服务层校验只能删自己） */
+    @OperLog(module = "个人中心", action = "删除用户", recordParams = false)
     @DeleteMapping("/{userId}")
     public Result<Void> delete(@PathVariable Long userId) {
         userService.deleteUser(userId);
@@ -73,12 +77,14 @@ public class UserController {
     }
 
     /** 修改当前登录用户资料 */
+    @OperLog(module = "个人中心", action = "修改个人资料")
     @PutMapping("/me")
     public Result<UserVO> updateMe(@Valid @RequestBody UserUpdateDTO dto) {
         return Result.success(userService.updateCurrentUser(dto));
     }
 
     /** 修改当前登录用户密码 */
+    @OperLog(module = "个人中心", action = "修改密码")
     @PutMapping("/me/password")
     public Result<Void> changePassword(@Valid @RequestBody ChangePasswordDTO dto) {
         userService.changePassword(dto);
@@ -86,6 +92,7 @@ public class UserController {
     }
 
     /** 上传头像，返回最新用户信息（含 avatarFileId） */
+    @OperLog(module = "个人中心", action = "上传头像")
     @PostMapping("/me/avatar")
     public Result<UserVO> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return Result.success(userService.uploadAvatar(file));

@@ -1,6 +1,7 @@
 package com.sched.core.engine;
 
 
+import com.sched.enmu.DataSourceType;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,7 +69,7 @@ public class MiniSyncRunner {
                         row.get("amount"),
                         row.get("tax_amount"),
                         null,          // net_amount 先留空，第 7 章由规则算出来
-                        "SRC",         // data_source 标记来源
+                        DataSourceType.SRC.getCode(),   // data_source 标记来源
                         now
                 });
             }

@@ -6,6 +6,10 @@ import com.sched.core.log.ErrorDetailService;
 import com.sched.core.model.FieldMapping;
 import com.sched.core.model.SyncTaskConfig;
 import com.sched.core.rule.RuleEngine;
+import com.sched.enmu.BatchStatus;
+import com.sched.enmu.ErrorType;
+import com.sched.enmu.TableRole;
+import com.sched.enmu.ValueType;
 import com.sched.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -55,11 +59,11 @@ public class ConfigDrivenRunner {
             //添加事务
             total = transactionTemplate.execute(status -> runOnce(taskCode, taskConfig, batchId,null, 0, 1));
             //执行结束日志
-            batchLogService.finish(batchId, 0, "SUCCESS", total, 0, null, System.currentTimeMillis() - start);
+            batchLogService.finish(batchId, 0, BatchStatus.SUCCESS.getCode(), total, 0, null, System.currentTimeMillis() - start);
         } catch (Exception e) {
             //执行失败日志
             log.error("任务 {} 执行失败", taskCode, e);
-            batchLogService.finish(batchId, 0, "FAILED", 0, total, e.getMessage(), System.currentTimeMillis() - start);
+            batchLogService.finish(batchId, 0, BatchStatus.FAILED.getCode(), 0, total, e.getMessage(), System.currentTimeMillis() - start);
             //将异常抛出
             throw e;
         }
@@ -81,11 +85,11 @@ public class ConfigDrivenRunner {
         try {
             total = transactionTemplate.execute(status ->
                     runOnce(taskCode, taskConfig, batchId, where, shardIndex, shardTotal));
-            batchLogService.finish(batchId, shardIndex, "SUCCESS", total, 0, null,
+            batchLogService.finish(batchId, shardIndex, BatchStatus.SUCCESS.getCode(), total, 0, null,
                     System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.error("分片执行失败 taskCode={} shard={}/{}", taskCode, shardIndex, shardTotal, e);
-            batchLogService.finish(batchId, shardIndex, "FAILED", 0, total, e.getMessage(),
+            batchLogService.finish(batchId, shardIndex, BatchStatus.FAILED.getCode(), 0, total, e.getMessage(),
                     System.currentTimeMillis() - start);
             throw e;   // 必须抛：ShardRunner 里靠 f.get() 才能看到子线程的异常
         }
@@ -96,14 +100,14 @@ public class ConfigDrivenRunner {
     public long runOnce(String taskCode, SyncTaskConfig taskConfig, String batchId,
                         String where, int shardIndex, int shardTotal) {
         List<FieldMapping> fieldMappings = syncConfigLoader.loadMappings(taskConfig.taskId());//通过SyncConfigLoader读取配置并且赋值给fieldMappings对象
-        String sourceWhitelist = syncConfigLoader.loadWhitelist(taskConfig.sourceTable(), "SOURCE");//查询该任务的源表是否在白名单配置表里
-        String targetWhitelist = syncConfigLoader.loadWhitelist(taskConfig.targetTable(), "TARGET");//查询该任务的目标表是否在白名单配置表里
+        String sourceWhitelist = syncConfigLoader.loadWhitelist(taskConfig.sourceTable(), TableRole.SOURCE.getCode());//查询该任务的源表是否在白名单配置表里
+        String targetWhitelist = syncConfigLoader.loadWhitelist(taskConfig.targetTable(), TableRole.TARGET.getCode());//查询该任务的目标表是否在白名单配置表里
         //进行判断
         if (sourceWhitelist == null || targetWhitelist == null) {
             throw new IllegalStateException("表未配置白名单：" + taskConfig.sourceTable() + " / " + taskConfig.targetTable());
         }
         //按照映射算出需要读取的字段映射(目标列必须取全部字段的值，因为目标列需要填充datasource)
-        List<String> sourceColumnList = fieldMappings.stream().filter(m -> "COLUMN".equals(m.valueType())).map(FieldMapping::sourceColumn).toList();
+        List<String> sourceColumnList = fieldMappings.stream().filter(m -> ValueType.COLUMN.is(m.valueType())).map(FieldMapping::sourceColumn).toList();
         List<String> targetColumnList = fieldMappings.stream().map(FieldMapping::targetColumn).toList();
         //读取需要排序的字段list
         List<String> orderByList = List.of(taskConfig.bizKey().split(","));
@@ -147,7 +151,7 @@ public class ConfigDrivenRunner {
                 } catch (Exception e) {
                     // 规则异常必须留痕且让批次可见地失败，禁止静默跳过
                     log.error("任务 {} 规则执行失败", taskCode, e);
-                    errorDetailService.record(batchId, shardIndex, "RULE_EXECUTE_ERROR", e.getMessage());
+                    errorDetailService.record(batchId, shardIndex, ErrorType.RULE_EXECUTE_ERROR.getCode(), e.getMessage());
                     // 必须包装成运行时异常：apply 声明的是受检异常 Exception
                     throw new IllegalStateException("规则执行失败：" + e.getMessage(), e);
                 }
@@ -155,11 +159,11 @@ public class ConfigDrivenRunner {
                 Object[] arg = new Object[targetColumnList.size()];
                 for (int i = 0; i < targetColumnList.size(); i++) {
                     FieldMapping m = fieldMappings.get(i);
-                    if ("RULE".equals(m.valueType())) {
+                    if (ValueType.RULE.is(m.valueType())) {
                         // 规则计算列：源表没有这一列，值只存在于 converted 里，且 key 已被转成驼峰
                         Object v = converted.get(m.targetColumn());
                         arg[i] = (v != null) ? v : converted.get(CommonUtils.camel(m.targetColumn()));
-                    } else if ("COLUMN".equals(m.valueType())) {
+                    } else if (ValueType.COLUMN.is(m.valueType())) {
                         // 源表列：从规则转换后的行取值
                         Object v = converted.get(m.sourceColumn());
                         arg[i] = (v != null) ? v : converted.get(CommonUtils.camel(m.sourceColumn()));
@@ -175,7 +179,7 @@ public class ConfigDrivenRunner {
                 //执行插入sql
                 jdbcTemplate.batchUpdate(insertSql, args);
             } catch (Exception e) {
-                errorDetailService.record(batchId, shardIndex, "SQL_ERROR", e.getMessage());
+                errorDetailService.record(batchId, shardIndex, ErrorType.SQL_ERROR.getCode(), e.getMessage());
                 throw e;      // 或者记录后继续下一批（取决于是否要求"部分成功"）
             }
 

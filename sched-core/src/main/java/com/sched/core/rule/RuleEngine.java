@@ -2,6 +2,7 @@ package com.sched.core.rule;
 
 import com.ql.util.express.DefaultContext;
 import com.ql.util.express.ExpressRunner;
+import com.sched.enmu.ValueType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -94,7 +95,7 @@ public class RuleEngine {
         Map<Integer, StringBuilder> byArea = new java.util.TreeMap<>();
 
         for (Map<String, Object> c : conds) {
-            String right = "COLUMN".equals(c.get("value_type"))
+            String right = ValueType.COLUMN.is((String) c.get("value_type"))
                     ? String.valueOf(c.get("value"))                       // 列名：taxAmount
                     : "'" + c.get("value") + "'";                          // 字面量：'VIP'
             // 拼表达式
@@ -137,7 +138,7 @@ public class RuleEngine {
 
             // value_type = EXPR  → value 是一段表达式，要执行才能拿到结果
             // value_type 是别的  → value 就是常量
-            Object value = "EXPR".equals(a.get("value_type"))
+            Object value = ValueType.EXPR.is((String) a.get("value_type"))
                     ? runner.execute((String) a.get("value"), ctx, null, true, false)
                     : a.get("value");
 

@@ -16,6 +16,7 @@ import com.sched.core.support.BizException;
 import com.sched.core.support.CurrentUserProvider;
 import com.sched.dao.entity.SchedUser;
 import com.sched.dao.mapper.SchedUserMapper;
+import com.sched.enmu.EnableStatus;
 import com.sched.enmu.ResultValue;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +67,7 @@ public class UserServiceImpl extends ServiceImpl<SchedUserMapper, SchedUser> imp
         user.setGender(dto.getGender() == null ? 0 : dto.getGender());
         user.setProfile(dto.getProfile());
         user.setDeptName(dto.getDeptName());
-        user.setStatus(1);
+        user.setStatus(EnableStatus.ENABLED.getIntCode());
         user.setDeleted(NOT_DELETED);
         user.setVersion(0);
         save(user);
@@ -95,7 +96,7 @@ public class UserServiceImpl extends ServiceImpl<SchedUserMapper, SchedUser> imp
                 .eq(SchedUser::getUserId, userId)
                 .eq(SchedUser::getDeleted, NOT_DELETED)
                 .set(SchedUser::getDeleted, System.currentTimeMillis())
-                .set(SchedUser::getStatus, 0)
+                .set(SchedUser::getStatus, EnableStatus.DISABLED.getIntCode())
                 .update();
         if (!removed) {
             throw new BizException(ResultValue.DATA_NOT_FOUND, "用户不存在或已删除");

@@ -1,5 +1,6 @@
 package com.sched.core.log;
 
+import com.sched.enmu.BatchStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -27,8 +28,8 @@ public class BatchLogService {
         String batchId = UUID.randomUUID().toString().replace("-", "");
         jdbcTemplate.update("INSERT INTO t_sync_batch_log" +
                         "(batch_id,task_id,shard_index,shard_total,status,start_time) " +
-                        "VALUES(?,?,?,?,'RUNNING',NOW())",
-                batchId, taskId, shard_index, shard_total);
+                        "VALUES(?,?,?,?,?,NOW())",
+                batchId, taskId, shard_index, shard_total, BatchStatus.RUNNING.getCode());
         return batchId;
     }
 

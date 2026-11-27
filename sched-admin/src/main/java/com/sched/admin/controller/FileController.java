@@ -1,6 +1,7 @@
 package com.sched.admin.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.sched.annotation.OperLog;
 import com.sched.core.dto.FileContent;
 import com.sched.core.dto.vo.FileVO;
 import com.sched.core.service.FileService;
@@ -42,6 +43,7 @@ public class FileController {
     private final FileService fileService;
 
     /** 上传文件：bizType 可选（默认 ATTACHMENT），bizId 可选 */
+    @OperLog(module = "文件管理", action = "上传文件")
     @PostMapping("/upload")
     public Result<FileVO> upload(@RequestParam("file") MultipartFile file,
                                  @RequestParam(required = false) String bizType,
@@ -57,6 +59,7 @@ public class FileController {
     }
 
     /** 下载：强制附件下载 */
+    @OperLog(module = "文件管理", action = "下载文件", recordParams = false)
     @GetMapping("/{fileId}/download")
     public ResponseEntity<InputStreamResource> download(@PathVariable Long fileId) {
         FileContent content = fileService.download(fileId);
@@ -87,6 +90,7 @@ public class FileController {
     }
 
     /** 逻辑删除自己的文件 */
+    @OperLog(module = "文件管理", action = "删除文件", recordParams = false)
     @DeleteMapping("/{fileId}")
     public Result<Void> delete(@PathVariable Long fileId) {
         fileService.delete(fileId);
