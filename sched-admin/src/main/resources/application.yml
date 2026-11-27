@@ -6,7 +6,7 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/sched_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     # 口令一律走环境变量 MYSQL_PASSWORD；本地默认值仅用于演示，真实口令不要提交到 Git
-    password: ${MYSQL_PASSWORD:1234}
+    password: ${MYSQL_PASSWORD:}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
