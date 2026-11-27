@@ -89,6 +89,7 @@ public class OperLogAspect {
      */
     @Around("@annotation(com.sched.annotation.OperLog)")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
+        log.info("开始记录操作日志~~~~");
         long start = System.currentTimeMillis();   // 记录开始时间，用来算耗时
         Object result = null;                      // 存目标方法的返回值，供 finally 里记录
         Throwable error = null;                    // 存目标方法抛出的异常，finally 里据此判断成功/失败
@@ -103,6 +104,7 @@ public class OperLogAspect {
             // finally 保证：成功、失败都会记日志（哪怕 return 了、哪怕抛异常了）
             try {
                 saveLog(joinPoint, result, error, System.currentTimeMillis() - start);   // 组装并落库
+                log.info("记录操作日志成功~~~~");
             } catch (Exception e) {
                 // 硬约束 1：日志失败不能影响业务。这里只 warn，绝不往外抛
                 log.warn("操作日志写入失败，已忽略：{}", e.toString());
