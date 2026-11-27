@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.node.TextNode;    // JSON 字符串节点�
 
 // ===== 业务相关：注解、服务、实体、异常、当前用户 =====
 import com.sched.annotation.OperLog;                    // 自定义注解，标记"这个方法要记操作日志"
-import com.sched.core.service.OperLogService;           // 真正把日志写进数据库的服务（core 层）
+import com.sched.core.service.operlog.OperLogService;   // 真正把日志写进数据库的服务（core 层）
 import com.sched.core.support.BizException;             // 业务异常，带 code，可以安全地记录 message
 import com.sched.core.support.CurrentUserProvider;      // 抽象"当前登录用户"，方便以后换成 JWT/Session 实现
-import com.sched.dao.entity.OperLogRecord;              // 操作日志表的实体，和 t_oper_log 对应
+import com.sched.dao.entity.operlog.OperLogRecord;             // 操作日志表的实体，和 t_oper_log 对应
 import com.sched.enmu.OperResultStatus;                 // 操作结果：成功 1 / 失败 0
 
 // ===== Servlet：取请求信息 + 过滤掉不能序列化的对象 =====

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sched.dao.mapper.SyncTaskMapper">
+
+    <!-- 可复用的列清单：避免每个 SELECT 都重复写，改字段时只改一处 -->
+    <sql id="Base_Column_List">
+        task_id, task_code, source_table, target_table, sync_type,
+        batch_size, biz_key, shard_total, block_strategy, del_flag, enable_status
+    </sql>
+
+    <!-- 可复用的"未删除"条件 -->
+    <sql id="Not_Deleted">
+        del_flag = 0
+    </sql>
+
+    <!--
+      动态条件查询：
+      <where> 会自动去掉开头多余的 AND/OR，全空时不生成 WHERE 关键字。
+      <if> 只有参数非 null 且非空串时才拼接条件。
+    -->
+    <select id="selectByCondition" resultType="com.sched.dao.entity.synctask.SyncTask">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_sync_task
+        <where>
+            <include refid="Not_Deleted"/>
+            <if test="taskCode != null and taskCode != ''">
+                AND task_code LIKE CONCAT('%', #{taskCode}, '%')
+            </if>
+            <if test="sourceTable != null and sourceTable != ''">
+                AND source_table = #{sourceTable}
+            </if>
+            <if test="targetTable != null and targetTable != ''">
+                AND target_table = #{targetTable}
+            </if>
+            <if test="enableStatus != null and enableStatus != ''">
+                AND enable_status = #{enableStatus}
+            </if>
+        </where>
+        ORDER BY task_id DESC
+    </select>
+
+    <!--
+      IN 查询：
+      collection="ids" 对应接口上的 @Param("ids")
+      open/separator/close 负责拼出 (?, ?, ?)
+    -->
+    <select id="selectByIds" resultType="com.sched.dao.entity.synctask.SyncTask">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_sync_task
+        <where>
+            <include refid="Not_Deleted"/>
+            AND task_id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </where>
+        ORDER BY task_id DESC
+    </select>
+
+    <!--
+      批量插入：
+      <foreach> 把 List 展开成多组 VALUES，一次 SQL 写完，比逐条 insert 快得多。
+    -->
+    <insert id="batchInsert">
+        INSERT INTO t_sync_task (
+            task_id, task_code, source_table, target_table, sync_type,
+            batch_size, biz_key, shard_total, block_strategy, del_flag, enable_status
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.taskId}, #{item.taskCode}, #{item.sourceTable}, #{item.targetTable},
+            #{item.syncType}, #{item.batchSize}, #{item.bizKey}, #{item.shardTotal},
+            #{item.blockStrategy}, #{item.delFlag}, #{item.enableStatus}
+            )
+        </foreach>
+    </insert>
+
+    <!--
+      选择性更新：
+      <set> 会自动去掉末尾多余的逗号，只更新传入的非 null 字段。
+      注意：这里不更新 task_code（业务标识）和 del_flag（只能由删除逻辑改）。
+    -->
+    <update id="updateSelective">
+        UPDATE t_sync_task
+        <set>
+            <if test="task.sourceTable != null">source_table = #{task.sourceTable},</if>
+            <if test="task.targetTable != null">target_table = #{task.targetTable},</if>
+            <if test="task.syncType != null">sync_type = #{task.syncType},</if>
+            <if test="task.batchSize != null">batch_size = #{task.batchSize},</if>
+            <if test="task.bizKey != null">biz_key = #{task.bizKey},</if>
+            <if test="task.shardTotal != null">shard_total = #{task.shardTotal},</if>
+            <if test="task.blockStrategy != null">block_strategy = #{task.blockStrategy},</if>
+            <if test="task.enableStatus != null">enable_status = #{task.enableStatus},</if>
+        </set>
+        WHERE task_id = #{task.taskId}
+        AND del_flag = 0
+    </update>
+
+    <!--
+      唯一性校验：统计未删除范围内同 task_code 的数量。
+      修改任务时可以传 excludeId 排除自己，避免"自己跟自己重名"。
+    -->
+    <select id="countActiveByCode" resultType="int">
+        SELECT COUNT(*)
+        FROM t_sync_task
+        WHERE task_code = #{taskCode}
+        AND del_flag = 0
+        <if test="excludeId != null and excludeId != ''">
+            AND task_id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

@@ -2,7 +2,7 @@
 // 只负责"多久跑一次"，一行业务逻辑都没有 —— 这是 admin 该干的事
 package com.sched.admin.job;
 
-import com.sched.core.registry.ExecutorRegistryService;
+import com.sched.core.engine.registry.ExecutorRegistryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

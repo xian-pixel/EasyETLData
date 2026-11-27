@@ -1,7 +1,7 @@
 package com.sched.core.config;
 
-import com.sched.core.model.FieldMapping;
-import com.sched.core.model.SyncTaskConfig;
+import com.sched.core.engine.model.FieldMapping;
+import com.sched.core.engine.model.SyncTaskConfig;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 

@@ -30,7 +30,7 @@ public class Result<T> {
 
     /** 成功（无数据） */
     public static Result<Void> success() {
-        return Result.<Void>success(null);
+        return Result.<Void>success();
     }
 
     /** 失败：code 与文案均由调用方指定，文案必须是可展示给用户的 */

@@ -67,18 +67,20 @@ M8 只做「数据切片 + 单机线程池并发」；M9 的执行器注册、�
 
 ### 2. 准备数据库
 
-```sql
-CREATE DATABASE IF NOT EXISTS sched_platform DEFAULT CHARACTER SET utf8mb4;
-```
-
-执行仓库内脚本：
+执行仓库内脚本（按顺序，全部幂等）：
 
 ```text
-sql/个人中心/personal_center.sql   -- t_sched_user、t_sched_file
-sql/操作日志/oper_log.sql          -- t_sched_oper_log
+sql/00_init_database.sql              -- 建库 sched_platform 并切库
+sql/同步主线/01_sync_task.sql         -- t_sync_task、t_sync_field_mapping、t_sync_table_whitelist
+sql/同步主线/02_sync_log.sql          -- t_sync_batch_log、t_sync_error_detail
+sql/同步主线/03_sync_rule.sql         -- t_sync_rule、t_sync_rule_condition、t_sync_rule_assignment
+sql/同步主线/04_sync_cluster.sql      -- t_sync_executor、t_sync_lock
+sql/演示数据/demo_order_detail.sql    -- src_order_detail、ods_order_detail（仅本地联调）
+sql/个人中心/personal_center.sql      -- t_sched_user、t_sched_file + 联调用户
+sql/操作日志/oper_log.sql             -- t_sched_oper_log
 ```
 
-> 注意：同步主线使用的 `t_sync_*` 共 10 张表（任务、字段映射、列白名单、规则三件套、批次日志、错误明细、执行器、租约锁）目前**未提供建表脚本**，只跑个人中心/操作日志可跳过；需要跑同步引擎时按仓库外的设计文档建表。这是当前已知的仓库完整性问题。
+> 同步主线 10 张 `t_sync_*` 表全部在上面第 2~5 个脚本中，只跑个人中心/操作日志可跳过前五个。演示表不含初始化数据，跑 `/api/dev/**` 前需自行向 `src_order_detail` 插入几行。
 
 ### 3. 启动
 
@@ -164,7 +166,7 @@ sched-platform
 │   ├── job/                 # 心跳与故障转移定时任务
 │   ├── handler/             # 全局异常处理
 │   └── resources/static/    # 零构建联调页
-└── sql/                     # 个人中心、操作日志建表脚本
+└── sql/                     # 建库、同步主线、演示数据、个人中心、操作日志脚本
 ```
 
 ## 配置说明
@@ -193,7 +195,7 @@ sched-platform
 
 ## 已知限制
 
-1. 同步主线 10 张表的 DDL 与演示数据未入仓，换机器无法一键复现同步链路。
+1. 演示数据只有建表语句，没有初始化 INSERT，跑 `/api/dev/**` 前需自行准备源数据。
 2. 未接入 Spring Security / JWT，接口无鉴权；`dev-user-id` 属调试开关。
 3. 仅实现全量同步，增量与 UPSERT 未落地；分片列在代码中固定为 `order_id`。
 4. 操作日志为同步写库，会给写接口增加一次 INSERT 的耗时，后续可改异步队列。
@@ -208,7 +210,7 @@ sched-platform
 | M8 | 分片切片 + 线程池并发 + 分片调试入口 | 已完成 |
 | M9 | 心跳注册、租约选主、僵尸批次转移重跑 | 已完成 |
 | 附加 | 个人中心、文件上传下载、操作日志 AOP 审计、原生联调页 | 已完成 |
-| 下一步 | Spring Security + JWT 鉴权、DDL 统一入仓、操作日志异步化、独立执行器模块、单测与 CI | 规划中 |
+| 下一步 | Spring Security + JWT 鉴权、操作日志异步化、独立执行器模块、单测与 CI | 规划中 |
 
 ## 说明
 

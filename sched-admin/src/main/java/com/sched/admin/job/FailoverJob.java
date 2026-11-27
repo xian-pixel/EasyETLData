@@ -2,9 +2,9 @@
 package com.sched.admin.job;
 
 import com.sched.core.engine.ShardRunner;
-import com.sched.core.model.StuckBatch;
-import com.sched.core.registry.ExecutorRegistryService;
-import com.sched.core.registry.MasterLockService;
+import com.sched.core.engine.model.StuckBatch;
+import com.sched.core.engine.registry.ExecutorRegistryService;
+import com.sched.core.engine.registry.MasterLockService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;

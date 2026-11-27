@@ -1,7 +1,7 @@
 package com.sched.dao.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.sched.dao.entity.FileRecord;
+import com.sched.dao.entity.file.FileRecord;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
